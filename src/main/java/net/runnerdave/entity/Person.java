@@ -50,7 +50,8 @@ public class Person implements Auditable {
 		this.lastName = lastName;
 	}
 	
-	@Transient	
+	@OneToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "ID_CARD_ID")	
 	public IdCard getIdCard() {
 		return idCard;
 	}
@@ -59,7 +60,7 @@ public class Person implements Auditable {
 		this.idCard = idCard;
 	}
 
-	@Transient
+	@OneToMany(mappedBy = "person", fetch = FetchType.LAZY)
 	public Set<Phone> getPhones() {
 		return phones;
 	}

@@ -1,6 +1,8 @@
 package net.runnerdave;
 
+import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -9,6 +11,9 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 import javax.persistence.Persistence;
 import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
 
 import net.runnerdave.entity.Geek;
 import net.runnerdave.entity.IdCard;
@@ -37,6 +42,7 @@ public class App
 			entityManager = factory.createEntityManager();
 			persistPerson(entityManager);
 			persistGeek(entityManager);
+			addPhones(entityManager);
 			loadPersons(entityManager);
 		} catch (Exception e) {
 			LOGGER.log(Level.FINEST, e.getMessage(), e);
@@ -59,11 +65,11 @@ public class App
 			person.setFirstName("Lisa");
 			person.setLastName("Simpson");
 			entityManager.persist(person);
-//			IdCard idCard = new IdCard();
-//			idCard.setIdNumber("4711");
-//			idCard.setIssueDate(new Date());
-//			person.setIdCard(idCard);
-//			entityManager.persist(idCard);
+			IdCard idCard = new IdCard();
+			idCard.setIdNumber("4711");
+			idCard.setIssueDate(new Date());
+			person.setIdCard(idCard);
+			entityManager.persist(idCard);
 			transaction.commit();
 		} catch (Exception e) {
 			if (transaction.isActive()) {
@@ -95,8 +101,8 @@ public class App
 	
 	private void loadPersons(EntityManager entityManager) {
 		entityManager.clear();
-		//TypedQuery<Person> query = entityManager.createQuery("from Person p left join fetch p.phones", Person.class);
-		TypedQuery<Person> query = entityManager.createQuery("from Person", Person.class);
+		TypedQuery<Person> query = entityManager.createQuery("from Person p left join fetch p.phones", Person.class);
+		//TypedQuery<Person> query = entityManager.createQuery("from Person", Person.class);
 		List<Person> resultList = query.getResultList();
 		for (Person person : resultList) {
 			StringBuilder sb = new StringBuilder();
@@ -105,15 +111,35 @@ public class App
 				Geek geek = (Geek)person;
 				sb.append(" ").append(geek.getFavouriteProgrammingLanguage());
 			}
-//			IdCard idCard = person.getIdCard();
-//			if (idCard != null) {
-//				sb.append(" ").append(idCard.getIdNumber()).append(" ").append(idCard.getIssueDate());
-//			}
-//			List<Phone> phones = person.getPhones();
-//			for (Phone phone : phones) {
-//				sb.append(" ").append(phone.getNumber());
-//			}
+			IdCard idCard = person.getIdCard();
+			if (idCard != null) {
+				sb.append(" ").append(idCard.getIdNumber()).append(" ").append(idCard.getIssueDate());
+			}
+			Set<Phone> phones = person.getPhones();
+			for (Phone phone : phones) {
+				sb.append(" ").append(phone.getNumber());
+			}
 			LOGGER.info(sb.toString());
 		}
+	}
+	
+	private void addPhones(EntityManager entityManager) {
+		EntityTransaction transaction = entityManager.getTransaction();
+		transaction.begin();
+		CriteriaBuilder builder = entityManager.getCriteriaBuilder();
+		CriteriaQuery<Person> query = builder.createQuery(Person.class);
+		Root<Person> personRoot = query.from(Person.class);
+		query.where(builder.and(
+				builder.equal(personRoot.get("firstName"), "Lisa"),
+				builder.equal(personRoot.get("lastName"), "Simpson")));
+		List<Person> resultList = entityManager.createQuery(query).getResultList();
+		for (Person person : resultList) {
+			Phone phone = new Phone();
+			phone.setNumber("+49 1234 456789");
+			entityManager.persist(phone);
+			person.getPhones().add(phone);
+			phone.setPerson(person);
+		}
+		transaction.commit();
 	}
 }
