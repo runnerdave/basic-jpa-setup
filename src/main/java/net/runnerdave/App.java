@@ -1,6 +1,8 @@
 package net.runnerdave;
 
+import java.util.Calendar;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
@@ -17,16 +19,16 @@ import javax.persistence.criteria.Root;
 
 import net.runnerdave.entity.Geek;
 import net.runnerdave.entity.IdCard;
+import net.runnerdave.entity.Period;
 import net.runnerdave.entity.Person;
 import net.runnerdave.entity.Phone;
-
+import net.runnerdave.entity.Project;
 
 /**
  * Basic jpa setup app
  *
  */
-public class App 
-{
+public class App {
 	private static final Logger LOGGER = Logger.getLogger("JPA");
 
 	public static void main(String[] args) {
@@ -44,6 +46,7 @@ public class App
 			persistGeek(entityManager);
 			addPhones(entityManager);
 			loadPersons(entityManager);
+			createProject(entityManager);
 		} catch (Exception e) {
 			LOGGER.log(Level.FINEST, e.getMessage(), e);
 			e.printStackTrace();
@@ -56,7 +59,7 @@ public class App
 			}
 		}
 	}
-	
+
 	private void persistPerson(EntityManager entityManager) {
 		EntityTransaction transaction = entityManager.getTransaction();
 		try {
@@ -68,6 +71,7 @@ public class App
 			IdCard idCard = new IdCard();
 			idCard.setIdNumber("4711");
 			idCard.setIssueDate(new Date());
+			idCard.setValid(false);
 			person.setIdCard(idCard);
 			entityManager.persist(idCard);
 			transaction.commit();
@@ -77,7 +81,7 @@ public class App
 			}
 		}
 	}
-	
+
 	private void persistGeek(EntityManager entityManager) {
 		EntityTransaction transaction = entityManager.getTransaction();
 		transaction.begin();
@@ -98,17 +102,18 @@ public class App
 		entityManager.persist(geek);
 		transaction.commit();
 	}
-	
+
 	private void loadPersons(EntityManager entityManager) {
 		entityManager.clear();
 		TypedQuery<Person> query = entityManager.createQuery("from Person p left join fetch p.phones", Person.class);
-		//TypedQuery<Person> query = entityManager.createQuery("from Person", Person.class);
+		// TypedQuery<Person> query = entityManager.createQuery("from Person",
+		// Person.class);
 		List<Person> resultList = query.getResultList();
 		for (Person person : resultList) {
 			StringBuilder sb = new StringBuilder();
 			sb.append(person.getFirstName()).append(" ").append(person.getLastName());
 			if (person instanceof Geek) {
-				Geek geek = (Geek)person;
+				Geek geek = (Geek) person;
 				sb.append(" ").append(geek.getFavouriteProgrammingLanguage());
 			}
 			IdCard idCard = person.getIdCard();
@@ -122,15 +127,14 @@ public class App
 			LOGGER.info(sb.toString());
 		}
 	}
-	
+
 	private void addPhones(EntityManager entityManager) {
 		EntityTransaction transaction = entityManager.getTransaction();
 		transaction.begin();
 		CriteriaBuilder builder = entityManager.getCriteriaBuilder();
 		CriteriaQuery<Person> query = builder.createQuery(Person.class);
 		Root<Person> personRoot = query.from(Person.class);
-		query.where(builder.and(
-				builder.equal(personRoot.get("firstName"), "Lisa"),
+		query.where(builder.and(builder.equal(personRoot.get("firstName"), "Lisa"),
 				builder.equal(personRoot.get("lastName"), "Simpson")));
 		List<Person> resultList = entityManager.createQuery(query).getResultList();
 		for (Person person : resultList) {
@@ -141,5 +145,44 @@ public class App
 			phone.setPerson(person);
 		}
 		transaction.commit();
+	}
+
+	/**
+	 * After calling this method, query the database to display results:
+	 * select * from t_project;
+	 * select * from t_person a, t_project b, t_geek_project c where a.id = c.geek_id;
+	 * @param session
+	 */
+	private void createProject(EntityManager entityManager) {
+		List<Geek> resultList = entityManager
+				.createQuery("from Geek where favouriteProgrammingLanguage = :fpl", Geek.class)
+				.setParameter("fpl", "Java").getResultList();
+		EntityTransaction transaction = entityManager.getTransaction();
+		transaction.begin();
+		Project project = new Project();
+		project.setTitle("Java Project");
+		project.setProjectType(Project.ProjectType.TIME_AND_MATERIAL);
+		Period period = new Period();
+		period.setStartDate(createDate(1, 1, 2015));
+		period.setEndDate(createDate(31, 12, 2015));
+		project.setPeriod(period);
+		for (Geek geek : resultList) {
+			project.getGeeks().add(geek);
+			geek.getProjects().add(project);
+		}
+		entityManager.persist(project);
+		transaction.commit();
+	}
+	
+	private Date createDate(int day, int month, int year) {
+		GregorianCalendar gc = new GregorianCalendar();
+		gc.set(Calendar.DAY_OF_MONTH, day);
+		gc.set(Calendar.MONTH, month - 1);
+		gc.set(Calendar.YEAR, year);
+		gc.set(Calendar.HOUR_OF_DAY, 0);
+		gc.set(Calendar.MINUTE, 0);
+		gc.set(Calendar.SECOND, 0);
+		gc.set(Calendar.MILLISECOND, 0);
+		return new Date(gc.getTimeInMillis());
 	}
 }

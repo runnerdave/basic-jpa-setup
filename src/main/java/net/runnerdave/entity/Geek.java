@@ -5,8 +5,10 @@ import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
 import javax.persistence.Table;
-import javax.persistence.Transient;
 
 @Entity
 @Table(name = "T_GEEK")
@@ -24,7 +26,10 @@ public class Geek extends Person {
 		this.favouriteProgrammingLanguage = favouriteProgrammingLanguage;
 	}
 
-	@Transient
+	@ManyToMany
+	@JoinTable(name = "T_GEEK_PROJECT", joinColumns = {
+			@JoinColumn(name = "GEEK_ID", referencedColumnName = "ID") }, inverseJoinColumns = {
+					@JoinColumn(name = "PROJECT_ID", referencedColumnName = "ID") })
 	public Set<Project> getProjects() {
 		return projects;
 	}
